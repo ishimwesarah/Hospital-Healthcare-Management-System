@@ -1,0 +1,190 @@
+package com.hospital.ui;
+
+import com.hospital.model.Department;
+import com.hospital.service.DepartmentService;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+
+import java.util.List;
+
+public class DepartmentTab {
+
+    private final DepartmentService departmentService = new DepartmentService();
+
+    private TableView<Department> table;
+    private TextField nameField;
+    private TextField locationField;
+    private TextField phoneField;
+    private Label statusLabel;
+    private Department selectedDepartment;
+
+    public Tab build() {
+        table = buildTable();
+        loadDepartments();
+
+        table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+            if (newSel != null) populateForm(newSel);
+        });
+
+        GridPane form = buildForm();
+        HBox buttons = buildButtons();
+        statusLabel = new Label();
+
+        VBox root = new VBox(12, table, form, buttons, statusLabel);
+        root.setPadding(new Insets(15));
+
+        Tab tab = new Tab("Departments", root);
+        tab.setClosable(false);
+        return tab;
+    }
+
+    private TableView<Department> buildTable() {
+        TableView<Department> tv = new TableView<>();
+
+        TableColumn<Department, Number> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(data -> new SimpleIntegerProperty(data.getValue().getDepartmentId()));
+
+        TableColumn<Department, String> nameCol = new TableColumn<>("Name");
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        TableColumn<Department, String> locationCol = new TableColumn<>("Location");
+        locationCol.setCellValueFactory(new PropertyValueFactory<>("location"));
+
+        TableColumn<Department, String> phoneCol = new TableColumn<>("Phone");
+        phoneCol.setCellValueFactory(new PropertyValueFactory<>("phoneNumber"));
+
+        tv.getColumns().addAll(List.of(idCol, nameCol, locationCol, phoneCol));
+        return tv;
+    }
+
+    private GridPane buildForm() {
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(8);
+
+        nameField = new TextField();
+        locationField = new TextField();
+        phoneField = new TextField();
+
+        grid.addRow(0, new Label("Name:"), nameField);
+        grid.addRow(1, new Label("Location:"), locationField);
+        grid.addRow(2, new Label("Phone:"), phoneField);
+
+        return grid;
+    }
+
+    private HBox buildButtons() {
+        Button addBtn = new Button("Add");
+        Button updateBtn = new Button("Update");
+        Button deleteBtn = new Button("Delete");
+        Button clearBtn = new Button("Clear");
+
+        addBtn.setOnAction(e -> handleAdd());
+        updateBtn.setOnAction(e -> handleUpdate());
+        deleteBtn.setOnAction(e -> handleDelete());
+        clearBtn.setOnAction(e -> clearForm());
+
+        return new HBox(10, addBtn, updateBtn, deleteBtn, clearBtn);
+    }
+
+    // Package-private so DoctorTab can refresh its department dropdown after changes here
+    void loadDepartments() {
+        try {
+            ObservableList<Department> list = FXCollections.observableArrayList(departmentService.getAllDepartments());
+            table.setItems(list);
+        } catch (Exception e) {
+            showError("Failed to load departments: " + e.getMessage());
+        }
+    }
+
+    private void populateForm(Department d) {
+        selectedDepartment = d;
+        nameField.setText(d.getName());
+        locationField.setText(d.getLocation());
+        phoneField.setText(d.getPhoneNumber());
+    }
+
+    private void clearForm() {
+        selectedDepartment = null;
+        nameField.clear();
+        locationField.clear();
+        phoneField.clear();
+        table.getSelectionModel().clearSelection();
+    }
+
+    private Department buildDepartmentFromForm() {
+        return new Department(nameField.getText(), locationField.getText(), phoneField.getText());
+    }
+
+    private void handleAdd() {
+        try {
+            int id = departmentService.addDepartment(buildDepartmentFromForm());
+            showSuccess("Department added with ID " + id + ".");
+            clearForm();
+            loadDepartments();
+        } catch (IllegalArgumentException e) {
+            showError(e.getMessage());
+        } catch (Exception e) {
+            showError("Failed to add department: " + e.getMessage());
+        }
+    }
+
+    private void handleUpdate() {
+        if (selectedDepartment == null) {
+            showError("Select a department from the table before updating.");
+            return;
+        }
+        try {
+            Department updated = buildDepartmentFromForm();
+            updated.setDepartmentId(selectedDepartment.getDepartmentId());
+            if (departmentService.updateDepartment(updated)) {
+                showSuccess("Department updated successfully.");
+                clearForm();
+                loadDepartments();
+            } else {
+                showError("Update failed: department not found.");
+            }
+        } catch (IllegalArgumentException e) {
+            showError(e.getMessage());
+        } catch (Exception e) {
+            showError("Failed to update department: " + e.getMessage());
+        }
+    }
+
+    private void handleDelete() {
+        if (selectedDepartment == null) {
+            showError("Select a department from the table before deleting.");
+            return;
+        }
+        try {
+            if (departmentService.deleteDepartment(selectedDepartment.getDepartmentId())) {
+                showSuccess("Department deleted.");
+                clearForm();
+                loadDepartments();
+            } else {
+                showError("Delete failed: department not found.");
+            }
+        } catch (Exception e) {
+            // Likely a foreign key violation if doctors still reference this department
+            showError("Failed to delete department: " + e.getMessage());
+        }
+    }
+
+    private void showSuccess(String message) {
+        statusLabel.setTextFill(Color.GREEN);
+        statusLabel.setText(message);
+    }
+
+    private void showError(String message) {
+        statusLabel.setTextFill(Color.RED);
+        statusLabel.setText(message);
+    }
+}

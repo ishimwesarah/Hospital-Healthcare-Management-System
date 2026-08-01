@@ -1,232 +1,25 @@
 package com.hospital.ui;
 
-import com.hospital.model.Patient;
-import com.hospital.service.PatientService;
 import javafx.application.Application;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
+import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
-
-import java.time.LocalDate;
-import java.util.List;
 
 public class MainApp extends Application {
 
-    private final PatientService patientService = new PatientService();
-
-    private TableView<Patient> table;
-    private ObservableList<Patient> patientList;
-
-    private TextField firstNameField;
-    private TextField lastNameField;
-    private DatePicker dobPicker;
-    private ComboBox<String> genderBox;
-    private TextField phoneField;
-    private TextField emailField;
-    private TextField addressField;
-
-    private Label statusLabel;
-    private Patient selectedPatient; // tracks which patient is being edited, null = "new" mode
-
     @Override
     public void start(Stage primaryStage) {
-        table = buildTable();
-        loadPatients();
+        TabPane tabPane = new TabPane();
+        tabPane.getTabs().addAll(
+                new PatientTab().build(),
+                new DoctorTab().build(),
+                new DepartmentTab().build()
+        );
 
-        table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
-            if (newSel != null) {
-                populateForm(newSel);
-            }
-        });
-
-        GridPane form = buildForm();
-        HBox buttons = buildButtons();
-        statusLabel = new Label();
-
-        VBox root = new VBox(12, table, form, buttons, statusLabel);
-        root.setPadding(new Insets(15));
-
-        Scene scene = new Scene(root, 750, 650);
-        primaryStage.setTitle("Hospital Management System - Patients");
+        Scene scene = new Scene(tabPane, 800, 650);
+        primaryStage.setTitle("Hospital Management System");
         primaryStage.setScene(scene);
         primaryStage.show();
-    }
-
-    private TableView<Patient> buildTable() {
-        TableView<Patient> tv = new TableView<>();
-
-        TableColumn<Patient, Number> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(data -> new SimpleIntegerProperty(data.getValue().getPatientId()));
-
-        TableColumn<Patient, String> firstNameCol = new TableColumn<>("First Name");
-        firstNameCol.setCellValueFactory(new PropertyValueFactory<>("firstName"));
-
-        TableColumn<Patient, String> lastNameCol = new TableColumn<>("Last Name");
-        lastNameCol.setCellValueFactory(new PropertyValueFactory<>("lastName"));
-
-        TableColumn<Patient, String> phoneCol = new TableColumn<>("Phone");
-        phoneCol.setCellValueFactory(new PropertyValueFactory<>("phoneNumber"));
-
-        TableColumn<Patient, String> emailCol = new TableColumn<>("Email");
-        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
-
-        tv.getColumns().addAll(List.of(idCol, firstNameCol, lastNameCol, phoneCol, emailCol));
-        return tv;
-    }
-
-    private GridPane buildForm() {
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(8);
-
-        firstNameField = new TextField();
-        lastNameField = new TextField();
-        dobPicker = new DatePicker();
-        genderBox = new ComboBox<>(FXCollections.observableArrayList("Male", "Female", "Other"));
-        phoneField = new TextField();
-        emailField = new TextField();
-        addressField = new TextField();
-
-        grid.addRow(0, new Label("First Name:"), firstNameField, new Label("Last Name:"), lastNameField);
-        grid.addRow(1, new Label("Date of Birth:"), dobPicker, new Label("Gender:"), genderBox);
-        grid.addRow(2, new Label("Phone:"), phoneField, new Label("Email:"), emailField);
-        grid.addRow(3, new Label("Address:"), addressField);
-
-        return grid;
-    }
-
-    private HBox buildButtons() {
-        Button addBtn = new Button("Add");
-        Button updateBtn = new Button("Update");
-        Button deleteBtn = new Button("Delete");
-        Button clearBtn = new Button("Clear");
-
-        addBtn.setOnAction(e -> handleAdd());
-        updateBtn.setOnAction(e -> handleUpdate());
-        deleteBtn.setOnAction(e -> handleDelete());
-        clearBtn.setOnAction(e -> clearForm());
-
-        return new HBox(10, addBtn, updateBtn, deleteBtn, clearBtn);
-    }
-
-    private void loadPatients() {
-        try {
-            patientList = FXCollections.observableArrayList(patientService.getAllPatients());
-            table.setItems(patientList);
-        } catch (Exception e) {
-            showError("Failed to load patients: " + e.getMessage());
-        }
-    }
-
-    private void populateForm(Patient p) {
-        selectedPatient = p;
-        firstNameField.setText(p.getFirstName());
-        lastNameField.setText(p.getLastName());
-        dobPicker.setValue(p.getDateOfBirth());
-        genderBox.setValue(p.getGender());
-        phoneField.setText(p.getPhoneNumber());
-        emailField.setText(p.getEmail());
-        addressField.setText(p.getAddress());
-    }
-
-    private void clearForm() {
-        selectedPatient = null;
-        firstNameField.clear();
-        lastNameField.clear();
-        dobPicker.setValue(null);
-        genderBox.setValue(null);
-        phoneField.clear();
-        emailField.clear();
-        addressField.clear();
-        table.getSelectionModel().clearSelection();
-    }
-
-    private Patient buildPatientFromForm() {
-        LocalDate dob = dobPicker.getValue();
-        return new Patient(
-                firstNameField.getText(),
-                lastNameField.getText(),
-                dob,
-                genderBox.getValue(),
-                phoneField.getText(),
-                emailField.getText(),
-                addressField.getText()
-        );
-    }
-
-    private void handleAdd() {
-        try {
-            Patient newPatient = buildPatientFromForm();
-            int id = patientService.addPatient(newPatient);
-            showSuccess("Patient added with ID " + id + ".");
-            clearForm();
-            loadPatients();
-        } catch (IllegalArgumentException e) {
-            showError(e.getMessage()); // validation error, e.g. "Email format is invalid."
-        } catch (Exception e) {
-            showError("Failed to add patient: " + e.getMessage());
-        }
-    }
-
-    private void handleUpdate() {
-        if (selectedPatient == null) {
-            showError("Select a patient from the table before updating.");
-            return;
-        }
-        try {
-            Patient updated = buildPatientFromForm();
-            updated.setPatientId(selectedPatient.getPatientId());
-            boolean success = patientService.updatePatient(updated);
-            if (success) {
-                showSuccess("Patient updated successfully.");
-                clearForm();
-                loadPatients();
-            } else {
-                showError("Update failed: patient not found.");
-            }
-        } catch (IllegalArgumentException e) {
-            showError(e.getMessage());
-        } catch (Exception e) {
-            showError("Failed to update patient: " + e.getMessage());
-        }
-    }
-
-    private void handleDelete() {
-        if (selectedPatient == null) {
-            showError("Select a patient from the table before deleting.");
-            return;
-        }
-        try {
-            boolean success = patientService.deletePatient(selectedPatient.getPatientId());
-            if (success) {
-                showSuccess("Patient deleted.");
-                clearForm();
-                loadPatients();
-            } else {
-                showError("Delete failed: patient not found.");
-            }
-        } catch (Exception e) {
-            showError("Failed to delete patient: " + e.getMessage());
-        }
-    }
-
-    private void showSuccess(String message) {
-        statusLabel.setTextFill(Color.GREEN);
-        statusLabel.setText(message);
-    }
-
-    private void showError(String message) {
-        statusLabel.setTextFill(Color.RED);
-        statusLabel.setText(message);
     }
 
     public static void main(String[] args) {
