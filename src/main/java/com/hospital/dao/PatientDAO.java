@@ -61,8 +61,11 @@ public class PatientDAO {
     }
 
     // READ — find all patients
+    // Deliberately no ORDER BY here — sorting is handled at the application layer
+    // (PatientSorter.mergeSortByName in PatientService), so that logic is actually
+    // doing real work rather than just re-confirming an order the DB already gave us.
     public List<Patient> findAll() throws SQLException {
-        String sql = "SELECT * FROM patients ORDER BY last_name, first_name";
+        String sql = "SELECT * FROM patients";
         List<Patient> patients = new ArrayList<>();
 
         try (Connection conn = DatabaseConnection.getConnection();
