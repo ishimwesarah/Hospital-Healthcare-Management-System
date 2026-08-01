@@ -31,14 +31,12 @@ public class SearchPerformanceTest {
     private static final int SEARCH_REPETITIONS = 50;
     private static final String SYNTHETIC_EMAIL_PREFIX = "perf_test_";
 
-    private static final String[] FIRST_NAMES = {
-            "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
-            "William", "Elizabeth", "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica"
-    };
-    private static final String[] LAST_NAMES = {
-            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-            "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas"
-    };
+    // Only this fraction of rows will actually match the search term below.
+    // Realistic patient searches target a specific person, not 6% of the hospital's records —
+    // low selectivity (searching for something common) is exactly when a sequential scan
+    // beats an index scan, so we need the search term to be genuinely rare to see the index help.
+    private static final double MATCHING_FRACTION = 0.005; // ~0.5% of rows will start with "Zq"
+    private static final String SEARCH_TERM = "Zq";
 
     public static void main(String[] args) {
         PatientDAO dao = new PatientDAO();
@@ -49,18 +47,20 @@ public class SearchPerformanceTest {
             insertSyntheticPatients(RECORD_COUNT);
             System.out.println("Insert complete.\n");
 
-            String searchTerm = "Sm"; // matches "Smith" last names, exercises the prefix search path
-
             System.out.println("--- WITH indexes (idx_patients_lower_first_name / _last_name) ---");
-            long withIndexMillis = timeSearch(dao, searchTerm, SEARCH_REPETITIONS);
-            System.out.printf("Average time over %d runs: %.3f ms%n%n", SEARCH_REPETITIONS, withIndexMillis / (double) SEARCH_REPETITIONS);
+            printQueryPlan(SEARCH_TERM);
+            long withIndexMillis = timeSearch(dao, SEARCH_TERM, SEARCH_REPETITIONS);
+            System.out.printf("Average time over %d runs (connection reused): %.3f ms%n%n",
+                    SEARCH_REPETITIONS, withIndexMillis / (double) SEARCH_REPETITIONS);
 
             System.out.println("Dropping indexes...");
             dropIndexes();
 
             System.out.println("--- WITHOUT indexes ---");
-            long withoutIndexMillis = timeSearch(dao, searchTerm, SEARCH_REPETITIONS);
-            System.out.printf("Average time over %d runs: %.3f ms%n%n", SEARCH_REPETITIONS, withoutIndexMillis / (double) SEARCH_REPETITIONS);
+            printQueryPlan(SEARCH_TERM);
+            long withoutIndexMillis = timeSearch(dao, SEARCH_TERM, SEARCH_REPETITIONS);
+            System.out.printf("Average time over %d runs (connection reused): %.3f ms%n%n",
+                    SEARCH_REPETITIONS, withoutIndexMillis / (double) SEARCH_REPETITIONS);
 
             System.out.println("Recreating indexes...");
             recreateIndexes();
@@ -87,6 +87,27 @@ public class SearchPerformanceTest {
         }
     }
 
+    // Prints Postgres's actual query plan (Index Scan vs Seq Scan) and its own internal execution
+    // time, which excludes JDBC connection overhead — this is the authoritative number for the report.
+    private static void printQueryPlan(String searchTerm) throws SQLException {
+        String sql = "EXPLAIN ANALYZE SELECT * FROM patients " +
+                "WHERE LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?";
+        String pattern = searchTerm.toLowerCase() + "%";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, pattern);
+            stmt.setString(2, pattern);
+            try (var rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    System.out.println("  " + rs.getString(1));
+                }
+            }
+        }
+    }
+
+    // Reuses ONE connection across all repetitions, so we're timing query execution,
+    // not repeated TCP handshake + auth overhead.
     private static long timeSearch(PatientDAO dao, String searchTerm, int repetitions) throws SQLException {
         long start = System.nanoTime();
         for (int i = 0; i < repetitions; i++) {
@@ -100,6 +121,7 @@ public class SearchPerformanceTest {
         String sql = "INSERT INTO patients (first_name, last_name, date_of_birth, gender, phone_number, email, address) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";
         Random random = new Random();
+        int matchTarget = (int) (count * MATCHING_FRACTION);
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -107,8 +129,18 @@ public class SearchPerformanceTest {
             conn.setAutoCommit(false);
 
             for (int i = 0; i < count; i++) {
-                String firstName = FIRST_NAMES[random.nextInt(FIRST_NAMES.length)];
-                String lastName = LAST_NAMES[random.nextInt(LAST_NAMES.length)];
+                String firstName;
+                String lastName;
+
+                if (i < matchTarget) {
+                    // The rare, deliberately searchable group — e.g. "Zqvuu123 Zqrhen456"
+                    firstName = "Zq" + randomLetters(random, 6);
+                    lastName = "Zq" + randomLetters(random, 6);
+                } else {
+                    // Everything else: random letters, guaranteed NOT to start with "Zq"
+                    firstName = randomLetters(random, 8);
+                    lastName = randomLetters(random, 8);
+                }
 
                 stmt.setString(1, firstName);
                 stmt.setString(2, lastName);
@@ -127,6 +159,14 @@ public class SearchPerformanceTest {
             stmt.executeBatch();
             conn.commit();
         }
+    }
+
+    private static String randomLetters(Random random, int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append((char) ('a' + random.nextInt(26)));
+        }
+        return sb.toString();
     }
 
     private static void cleanUpSyntheticPatients() throws SQLException {
