@@ -100,3 +100,17 @@ CREATE TABLE medical_inventory (
 
 CREATE INDEX idx_patient_feedback_patient_id ON patient_feedback(patient_id);
 CREATE INDEX idx_medical_inventory_item_name ON medical_inventory(item_name);
+
+
+-- NON SQL EXPLORATION
+
+CREATE TABLE medical_logs (
+                              log_id      SERIAL PRIMARY KEY,
+                              patient_id  INT NOT NULL REFERENCES patients(patient_id),
+                              log_date    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              log_data    JSONB NOT NULL
+);
+
+CREATE INDEX idx_medical_logs_patient_id ON medical_logs(patient_id);
+-- GIN index enables efficient queries INSIDE the JSON structure itself (e.g. "find all logs tagged 'follow-up'")
+CREATE INDEX idx_medical_logs_data ON medical_logs USING GIN (log_data);
