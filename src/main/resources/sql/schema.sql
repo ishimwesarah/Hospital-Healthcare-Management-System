@@ -55,3 +55,26 @@ CREATE INDEX idx_appointments_doctor_id ON appointments(doctor_id);
 
 CREATE INDEX idx_patients_lower_last_name ON patients (LOWER(last_name));
 CREATE INDEX idx_patients_lower_first_name ON patients (LOWER(first_name));
+
+CREATE TABLE prescriptions (
+                               prescription_id   SERIAL PRIMARY KEY,
+                               patient_id        INT NOT NULL REFERENCES patients(patient_id),
+                               doctor_id         INT NOT NULL REFERENCES doctors(doctor_id),
+                               date_prescribed   DATE NOT NULL DEFAULT CURRENT_DATE,
+                               notes             VARCHAR(300),
+                               created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE prescription_items (
+                                    prescription_item_id  SERIAL PRIMARY KEY,
+                                    prescription_id       INT NOT NULL REFERENCES prescriptions(prescription_id) ON DELETE CASCADE,
+                                    medication_name       VARCHAR(150) NOT NULL,
+                                    dosage                VARCHAR(50),
+                                    frequency             VARCHAR(50),
+                                    duration              VARCHAR(50),
+                                    quantity              INT
+);
+
+CREATE INDEX idx_prescriptions_patient_id ON prescriptions(patient_id);
+CREATE INDEX idx_prescriptions_doctor_id ON prescriptions(doctor_id);
+CREATE INDEX idx_prescription_items_prescription_id ON prescription_items(prescription_id);
