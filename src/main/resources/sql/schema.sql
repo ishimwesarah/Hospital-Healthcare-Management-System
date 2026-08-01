@@ -35,3 +35,19 @@ CREATE TABLE doctors (
 
 CREATE INDEX idx_doctors_last_name ON doctors(last_name);
 CREATE INDEX idx_doctors_department_id ON doctors(department_id);
+
+
+CREATE TABLE appointments (
+                              appointment_id    SERIAL PRIMARY KEY,
+                              patient_id        INT NOT NULL REFERENCES patients(patient_id),
+                              doctor_id         INT NOT NULL REFERENCES doctors(doctor_id),
+                              appointment_date  DATE NOT NULL,
+                              appointment_time  TIME NOT NULL,
+                              reason            VARCHAR(200),
+                              status            VARCHAR(20) NOT NULL DEFAULT 'Scheduled',
+                              created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_appointments_date ON appointments(appointment_date);
+CREATE INDEX idx_appointments_patient_id ON appointments(patient_id);
+CREATE INDEX idx_appointments_doctor_id ON appointments(doctor_id);
