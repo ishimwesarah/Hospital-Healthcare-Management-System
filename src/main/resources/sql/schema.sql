@@ -78,3 +78,25 @@ CREATE TABLE prescription_items (
 CREATE INDEX idx_prescriptions_patient_id ON prescriptions(patient_id);
 CREATE INDEX idx_prescriptions_doctor_id ON prescriptions(doctor_id);
 CREATE INDEX idx_prescription_items_prescription_id ON prescription_items(prescription_id);
+
+CREATE TABLE patient_feedback (
+                                  feedback_id     SERIAL PRIMARY KEY,
+                                  patient_id      INT NOT NULL REFERENCES patients(patient_id),
+                                  doctor_id       INT REFERENCES doctors(doctor_id),
+                                  rating          INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                                  comments        VARCHAR(500),
+                                  feedback_date   DATE NOT NULL DEFAULT CURRENT_DATE
+);
+
+CREATE TABLE medical_inventory (
+                                   inventory_id      SERIAL PRIMARY KEY,
+                                   item_name         VARCHAR(150) NOT NULL UNIQUE,
+                                   quantity          INT NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+                                   unit              VARCHAR(20),
+                                   reorder_level     INT DEFAULT 10,
+                                   last_restocked    DATE,
+                                   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_patient_feedback_patient_id ON patient_feedback(patient_id);
+CREATE INDEX idx_medical_inventory_item_name ON medical_inventory(item_name);
