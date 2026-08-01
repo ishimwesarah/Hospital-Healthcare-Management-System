@@ -21,3 +21,17 @@ CREATE TABLE departments (
 );
 
 CREATE INDEX idx_departments_name ON departments(name);
+
+CREATE TABLE doctors (
+                         doctor_id       SERIAL PRIMARY KEY,
+                         first_name      VARCHAR(50)  NOT NULL,
+                         last_name       VARCHAR(50)  NOT NULL,
+                         specialization  VARCHAR(100),
+                         phone_number    VARCHAR(20)  UNIQUE,
+                         email           VARCHAR(100) UNIQUE,
+                         department_id   INT NOT NULL REFERENCES departments(department_id),
+                         created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_doctors_last_name ON doctors(last_name);
+CREATE INDEX idx_doctors_department_id ON doctors(department_id);
