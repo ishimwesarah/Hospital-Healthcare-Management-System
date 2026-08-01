@@ -31,6 +31,8 @@ public class PatientTab {
     private Label statusLabel;
     private Patient selectedPatient;
 
+    private TextField searchField;
+
     public Tab build() {
         table = buildTable();
         loadPatients();
@@ -39,16 +41,30 @@ public class PatientTab {
             if (newSel != null) populateForm(newSel);
         });
 
+        searchField = new TextField();
+        searchField.setPromptText("Search by name or ID...");
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> handleSearch(newVal));
+        HBox searchBar = new HBox(10, new Label("Search:"), searchField);
+
         GridPane form = buildForm();
         HBox buttons = buildButtons();
         statusLabel = new Label();
 
-        VBox root = new VBox(12, table, form, buttons, statusLabel);
+        VBox root = new VBox(12, searchBar, table, form, buttons, statusLabel);
         root.setPadding(new Insets(15));
 
         Tab tab = new Tab("Patients", root);
         tab.setClosable(false);
         return tab;
+    }
+
+    private void handleSearch(String term) {
+        try {
+            ObservableList<Patient> results = FXCollections.observableArrayList(patientService.searchPatients(term));
+            table.setItems(results);
+        } catch (Exception e) {
+            showError("Search failed: " + e.getMessage());
+        }
     }
 
     private TableView<Patient> buildTable() {
