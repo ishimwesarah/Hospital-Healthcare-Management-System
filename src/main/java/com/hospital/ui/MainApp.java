@@ -13,10 +13,11 @@ public class MainApp extends Application {
         tabPane.getTabs().addAll(
                 new PatientTab().build(),
                 new DoctorTab().build(),
-                new DepartmentTab().build()
+                new DepartmentTab().build(),
+                new AppointmentTab().build()
         );
 
-        Scene scene = new Scene(tabPane, 800, 650);
+        Scene scene = new Scene(tabPane, 850, 650);
         primaryStage.setTitle("Hospital Management System");
         primaryStage.setScene(scene);
         primaryStage.show();
