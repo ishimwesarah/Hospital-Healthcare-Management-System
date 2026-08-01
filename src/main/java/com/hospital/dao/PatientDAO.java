@@ -112,6 +112,47 @@ public class PatientDAO {
         }
     }
 
+    // Case-insensitive prefix search on first/last name, using the LOWER(...) functional indexes.
+    // If the search term is purely numeric, treat it as a patient ID lookup instead.
+    public List<Patient> searchPatients(String searchTerm) throws SQLException {
+        List<Patient> results = new ArrayList<>();
+
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return findAll();
+        }
+
+        String trimmed = searchTerm.trim();
+
+        if (trimmed.matches("\\d+")) {
+            Patient byId = findById(Integer.parseInt(trimmed));
+            if (byId != null) {
+                results.add(byId);
+            }
+            return results;
+        }
+
+        String sql = "SELECT * FROM patients " +
+                "WHERE LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? " +
+                "ORDER BY last_name, first_name";
+
+        String pattern = trimmed.toLowerCase() + "%"; // prefix match — this is what lets the LOWER(...) index be used
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, pattern);
+            stmt.setString(2, pattern);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    results.add(mapRowToPatient(rs));
+                }
+            }
+        }
+
+        return results;
+    }
+
     // Helper: map one ResultSet row to a Patient object
     private Patient mapRowToPatient(ResultSet rs) throws SQLException {
         return new Patient(

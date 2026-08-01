@@ -24,6 +24,10 @@ public class PatientService {
         return patientDAO.findAll();
     }
 
+    public List<Patient> searchPatients(String searchTerm) throws SQLException {
+        return patientDAO.searchPatients(searchTerm);
+    }
+
     public Patient getPatientById(int id) throws SQLException {
         return patientDAO.findById(id);
     }
