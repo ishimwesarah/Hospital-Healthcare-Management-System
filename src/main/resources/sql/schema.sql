@@ -11,3 +11,13 @@ CREATE TABLE patients (
 );
 
 CREATE INDEX idx_patients_last_name ON patients(last_name);
+
+CREATE TABLE departments (
+                             department_id   SERIAL PRIMARY KEY,
+                             name             VARCHAR(100) NOT NULL UNIQUE,
+                             location         VARCHAR(100),
+                             phone_number     VARCHAR(20),
+                             created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_departments_name ON departments(name);
