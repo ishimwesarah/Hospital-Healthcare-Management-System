@@ -14,7 +14,8 @@ public class MainApp extends Application {
                 new PatientTab().build(),
                 new DoctorTab().build(),
                 new DepartmentTab().build(),
-                new AppointmentTab().build()
+                new AppointmentTab().build(),
+                new PrescriptionTab().build()
         );
 
         Scene scene = new Scene(tabPane, 850, 650);
