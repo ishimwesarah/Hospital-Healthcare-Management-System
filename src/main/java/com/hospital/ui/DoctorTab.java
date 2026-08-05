@@ -2,11 +2,8 @@ package com.hospital.ui;
 
 import com.hospital.model.Department;
 import com.hospital.model.Doctor;
-import com.hospital.service.DepartmentService;
 import com.hospital.service.DoctorService;
 import javafx.beans.property.SimpleIntegerProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -20,7 +17,7 @@ import java.util.List;
 public class DoctorTab {
 
     private final DoctorService doctorService = new DoctorService();
-    private final DepartmentService departmentService = new DepartmentService();
+    private final AppData appData;
 
     private TableView<Doctor> table;
     private TextField firstNameField;
@@ -28,16 +25,21 @@ public class DoctorTab {
     private TextField specializationField;
     private TextField phoneField;
     private TextField emailField;
-    private ComboBox<Department> departmentBox; // shows department name, holds full Department object
+    private ComboBox<Department> departmentBox;
     private Label statusLabel;
     private Doctor selectedDoctor;
 
+    public DoctorTab(AppData appData) {
+        this.appData = appData;
+    }
+
     public Tab build() {
         table = buildTable();
+        table.setItems(appData.getDoctors()); // shared, live list
+
         departmentBox = new ComboBox<>();
         setupDepartmentBoxDisplay();
-        loadDepartmentsIntoBox();
-        loadDoctors();
+        departmentBox.setItems(appData.getDepartments()); // shared, live list — updates from Departments tab automatically
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -77,7 +79,6 @@ public class DoctorTab {
         return tv;
     }
 
-    // Makes the ComboBox display "Cardiology" instead of "com.hospital.model.Department@1a2b3c"
     private void setupDepartmentBoxDisplay() {
         departmentBox.setConverter(new javafx.util.StringConverter<>() {
             @Override
@@ -87,18 +88,9 @@ public class DoctorTab {
 
             @Override
             public Department fromString(String s) {
-                return null; // not needed, box is not editable
+                return null;
             }
         });
-    }
-
-    private void loadDepartmentsIntoBox() {
-        try {
-            ObservableList<Department> depts = FXCollections.observableArrayList(departmentService.getAllDepartments());
-            departmentBox.setItems(depts);
-        } catch (Exception e) {
-            showError("Failed to load departments: " + e.getMessage());
-        }
     }
 
     private GridPane buildForm() {
@@ -131,15 +123,6 @@ public class DoctorTab {
         clearBtn.setOnAction(e -> clearForm());
 
         return new HBox(10, addBtn, updateBtn, deleteBtn, clearBtn);
-    }
-
-    private void loadDoctors() {
-        try {
-            ObservableList<Doctor> list = FXCollections.observableArrayList(doctorService.getAllDoctors());
-            table.setItems(list);
-        } catch (Exception e) {
-            showError("Failed to load doctors: " + e.getMessage());
-        }
     }
 
     private void populateForm(Doctor d) {
@@ -186,7 +169,7 @@ public class DoctorTab {
             int id = doctorService.addDoctor(buildDoctorFromForm());
             showSuccess("Doctor added with ID " + id + ".");
             clearForm();
-            loadDoctors();
+            appData.refreshDoctors();
         } catch (IllegalArgumentException e) {
             showError(e.getMessage());
         } catch (Exception e) {
@@ -205,7 +188,7 @@ public class DoctorTab {
             if (doctorService.updateDoctor(updated)) {
                 showSuccess("Doctor updated successfully.");
                 clearForm();
-                loadDoctors();
+                appData.refreshDoctors();
             } else {
                 showError("Update failed: doctor not found.");
             }
@@ -225,7 +208,7 @@ public class DoctorTab {
             if (doctorService.deleteDoctor(selectedDoctor.getDoctorId())) {
                 showSuccess("Doctor deleted.");
                 clearForm();
-                loadDoctors();
+                appData.refreshDoctors();
             } else {
                 showError("Delete failed: doctor not found.");
             }

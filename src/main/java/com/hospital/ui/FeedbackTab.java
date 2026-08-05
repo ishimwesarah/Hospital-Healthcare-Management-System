@@ -3,13 +3,10 @@ package com.hospital.ui;
 import com.hospital.model.Doctor;
 import com.hospital.model.Patient;
 import com.hospital.model.PatientFeedback;
-import com.hospital.service.DoctorService;
 import com.hospital.service.PatientFeedbackService;
-import com.hospital.service.PatientService;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -24,26 +21,31 @@ import java.util.List;
 public class FeedbackTab {
 
     private final PatientFeedbackService feedbackService = new PatientFeedbackService();
-    private final PatientService patientService = new PatientService();
-    private final DoctorService doctorService = new DoctorService();
+    private final AppData appData;
 
     private TableView<PatientFeedback> table;
     private ComboBox<Patient> patientBox;
-    private ComboBox<Doctor> doctorBox; // optional — user may leave unselected for general feedback
+    private ComboBox<Doctor> doctorBox;
     private ComboBox<Integer> ratingBox;
     private TextField commentsField;
     private DatePicker datePicker;
     private Label statusLabel;
     private PatientFeedback selectedFeedback;
 
+    public FeedbackTab(AppData appData) {
+        this.appData = appData;
+    }
+
     public Tab build() {
         table = buildTable();
         patientBox = new ComboBox<>();
         doctorBox = new ComboBox<>();
         setupComboDisplays();
-        loadPatientsIntoBox();
-        loadDoctorsIntoBox();
-        loadFeedback();
+
+        patientBox.setItems(appData.getPatients()); // shared, live list
+        doctorBox.setItems(appData.getDoctors());   // shared, live list
+
+        loadFeedback(); // feedback itself isn't shared with any other tab
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -110,22 +112,6 @@ public class FeedbackTab {
                 return null;
             }
         });
-    }
-
-    private void loadPatientsIntoBox() {
-        try {
-            patientBox.setItems(FXCollections.observableArrayList(patientService.getAllPatients()));
-        } catch (Exception e) {
-            showError("Failed to load patients: " + e.getMessage());
-        }
-    }
-
-    private void loadDoctorsIntoBox() {
-        try {
-            doctorBox.setItems(FXCollections.observableArrayList(doctorService.getAllDoctors()));
-        } catch (Exception e) {
-            showError("Failed to load doctors: " + e.getMessage());
-        }
     }
 
     private GridPane buildForm() {

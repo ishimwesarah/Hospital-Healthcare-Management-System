@@ -3,8 +3,6 @@ package com.hospital.ui;
 import com.hospital.model.Department;
 import com.hospital.service.DepartmentService;
 import javafx.beans.property.SimpleIntegerProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -18,6 +16,7 @@ import java.util.List;
 public class DepartmentTab {
 
     private final DepartmentService departmentService = new DepartmentService();
+    private final AppData appData;
 
     private TableView<Department> table;
     private TextField nameField;
@@ -26,9 +25,13 @@ public class DepartmentTab {
     private Label statusLabel;
     private Department selectedDepartment;
 
+    public DepartmentTab(AppData appData) {
+        this.appData = appData;
+    }
+
     public Tab build() {
         table = buildTable();
-        loadDepartments();
+        table.setItems(appData.getDepartments()); // shared, live list
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -95,16 +98,6 @@ public class DepartmentTab {
         return new HBox(10, addBtn, updateBtn, deleteBtn, clearBtn);
     }
 
-    // Package-private so DoctorTab can refresh its department dropdown after changes here
-    void loadDepartments() {
-        try {
-            ObservableList<Department> list = FXCollections.observableArrayList(departmentService.getAllDepartments());
-            table.setItems(list);
-        } catch (Exception e) {
-            showError("Failed to load departments: " + e.getMessage());
-        }
-    }
-
     private void populateForm(Department d) {
         selectedDepartment = d;
         nameField.setText(d.getName());
@@ -129,7 +122,7 @@ public class DepartmentTab {
             int id = departmentService.addDepartment(buildDepartmentFromForm());
             showSuccess("Department added with ID " + id + ".");
             clearForm();
-            loadDepartments();
+            appData.refreshDepartments(); // Doctor tab's dropdown updates instantly too — same shared list
         } catch (IllegalArgumentException e) {
             showError(e.getMessage());
         } catch (Exception e) {
@@ -148,7 +141,7 @@ public class DepartmentTab {
             if (departmentService.updateDepartment(updated)) {
                 showSuccess("Department updated successfully.");
                 clearForm();
-                loadDepartments();
+                appData.refreshDepartments();
             } else {
                 showError("Update failed: department not found.");
             }
@@ -168,12 +161,11 @@ public class DepartmentTab {
             if (departmentService.deleteDepartment(selectedDepartment.getDepartmentId())) {
                 showSuccess("Department deleted.");
                 clearForm();
-                loadDepartments();
+                appData.refreshDepartments();
             } else {
                 showError("Delete failed: department not found.");
             }
         } catch (Exception e) {
-            // Likely a foreign key violation if doctors still reference this department
             showError("Failed to delete department: " + e.getMessage());
         }
     }

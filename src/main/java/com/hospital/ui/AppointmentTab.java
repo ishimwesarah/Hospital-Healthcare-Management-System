@@ -4,8 +4,6 @@ import com.hospital.model.Appointment;
 import com.hospital.model.Doctor;
 import com.hospital.model.Patient;
 import com.hospital.service.AppointmentService;
-import com.hospital.service.DoctorService;
-import com.hospital.service.PatientService;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -26,14 +24,13 @@ import java.util.List;
 public class AppointmentTab {
 
     private final AppointmentService appointmentService = new AppointmentService();
-    private final PatientService patientService = new PatientService();
-    private final DoctorService doctorService = new DoctorService();
+    private final AppData appData;
 
     private TableView<Appointment> table;
     private ComboBox<Patient> patientBox;
     private ComboBox<Doctor> doctorBox;
     private DatePicker datePicker;
-    private TextField timeField; // simple "HH:mm" text input, e.g. "14:30"
+    private TextField timeField;
     private TextField reasonField;
     private ComboBox<String> statusBox;
     private Label statusLabel;
@@ -41,14 +38,20 @@ public class AppointmentTab {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
+    public AppointmentTab(AppData appData) {
+        this.appData = appData;
+    }
+
     public Tab build() {
         table = buildTable();
         patientBox = new ComboBox<>();
         doctorBox = new ComboBox<>();
         setupComboDisplays();
-        loadPatientsIntoBox();
-        loadDoctorsIntoBox();
-        loadAppointments();
+
+        patientBox.setItems(appData.getPatients()); // shared, live list
+        doctorBox.setItems(appData.getDoctors());   // shared, live list
+
+        loadAppointments(); // appointments themselves aren't shared with any other tab
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -117,24 +120,6 @@ public class AppointmentTab {
                 return null;
             }
         });
-    }
-
-    private void loadPatientsIntoBox() {
-        try {
-            ObservableList<Patient> patients = FXCollections.observableArrayList(patientService.getAllPatients());
-            patientBox.setItems(patients);
-        } catch (Exception e) {
-            showError("Failed to load patients: " + e.getMessage());
-        }
-    }
-
-    private void loadDoctorsIntoBox() {
-        try {
-            ObservableList<Doctor> doctors = FXCollections.observableArrayList(doctorService.getAllDoctors());
-            doctorBox.setItems(doctors);
-        } catch (Exception e) {
-            showError("Failed to load doctors: " + e.getMessage());
-        }
     }
 
     private GridPane buildForm() {

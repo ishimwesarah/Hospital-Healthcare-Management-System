@@ -4,8 +4,6 @@ import com.hospital.model.Doctor;
 import com.hospital.model.Patient;
 import com.hospital.model.Prescription;
 import com.hospital.model.PrescriptionItem;
-import com.hospital.service.DoctorService;
-import com.hospital.service.PatientService;
 import com.hospital.service.PrescriptionService;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -26,8 +24,7 @@ import java.util.List;
 public class PrescriptionTab {
 
     private final PrescriptionService prescriptionService = new PrescriptionService();
-    private final PatientService patientService = new PatientService();
-    private final DoctorService doctorService = new DoctorService();
+    private final AppData appData;
 
     private TableView<Prescription> prescriptionTable;
     private TableView<PrescriptionItem> itemTable;
@@ -38,7 +35,6 @@ public class PrescriptionTab {
     private DatePicker datePicker;
     private TextField notesField;
 
-    // Item-entry mini-form
     private TextField medicationField;
     private TextField dosageField;
     private TextField frequencyField;
@@ -48,15 +44,21 @@ public class PrescriptionTab {
     private Label statusLabel;
     private Prescription selectedPrescription;
 
+    public PrescriptionTab(AppData appData) {
+        this.appData = appData;
+    }
+
     public Tab build() {
         prescriptionTable = buildPrescriptionTable();
         itemTable = buildItemTable();
         patientBox = new ComboBox<>();
         doctorBox = new ComboBox<>();
         setupComboDisplays();
-        loadPatientsIntoBox();
-        loadDoctorsIntoBox();
-        loadPrescriptions();
+
+        patientBox.setItems(appData.getPatients()); // shared, live list
+        doctorBox.setItems(appData.getDoctors());   // shared, live list
+
+        loadPrescriptions(); // prescriptions themselves aren't shared with any other tab
 
         prescriptionTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -155,22 +157,6 @@ public class PrescriptionTab {
                 return null;
             }
         });
-    }
-
-    private void loadPatientsIntoBox() {
-        try {
-            patientBox.setItems(FXCollections.observableArrayList(patientService.getAllPatients()));
-        } catch (Exception e) {
-            showError("Failed to load patients: " + e.getMessage());
-        }
-    }
-
-    private void loadDoctorsIntoBox() {
-        try {
-            doctorBox.setItems(FXCollections.observableArrayList(doctorService.getAllDoctors()));
-        } catch (Exception e) {
-            showError("Failed to load doctors: " + e.getMessage());
-        }
     }
 
     private GridPane buildPrescriptionForm() {

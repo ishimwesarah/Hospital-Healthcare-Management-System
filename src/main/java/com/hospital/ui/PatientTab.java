@@ -4,7 +4,6 @@ import com.hospital.model.Patient;
 import com.hospital.service.PatientService;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -13,14 +12,15 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public class PatientTab {
 
     private final PatientService patientService = new PatientService();
+    private final AppData appData;
 
     private TableView<Patient> table;
+    private TextField searchField;
     private TextField firstNameField;
     private TextField lastNameField;
     private DatePicker dobPicker;
@@ -31,11 +31,13 @@ public class PatientTab {
     private Label statusLabel;
     private Patient selectedPatient;
 
-    private TextField searchField;
+    public PatientTab(AppData appData) {
+        this.appData = appData;
+    }
 
     public Tab build() {
         table = buildTable();
-        loadPatients();
+        table.setItems(appData.getPatients()); // shared, live list — updates automatically from ANY tab
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
             if (newSel != null) populateForm(newSel);
@@ -56,15 +58,6 @@ public class PatientTab {
         Tab tab = new Tab("Patients", root);
         tab.setClosable(false);
         return tab;
-    }
-
-    private void handleSearch(String term) {
-        try {
-            ObservableList<Patient> results = FXCollections.observableArrayList(patientService.searchPatients(term));
-            table.setItems(results);
-        } catch (Exception e) {
-            showError("Search failed: " + e.getMessage());
-        }
     }
 
     private TableView<Patient> buildTable() {
@@ -124,12 +117,18 @@ public class PatientTab {
         return new HBox(10, addBtn, updateBtn, deleteBtn, clearBtn);
     }
 
-    private void loadPatients() {
+    // Search bypasses the shared list — filtered results are temporary, so we show a fresh
+    // one-off list on the table without disturbing appData.getPatients() itself.
+    // Clearing the search box restores the live shared list.
+    private void handleSearch(String term) {
         try {
-            ObservableList<Patient> list = FXCollections.observableArrayList(patientService.getAllPatients());
-            table.setItems(list);
+            if (term == null || term.trim().isEmpty()) {
+                table.setItems(appData.getPatients());
+            } else {
+                table.setItems(FXCollections.observableArrayList(patientService.searchPatients(term)));
+            }
         } catch (Exception e) {
-            showError("Failed to load patients: " + e.getMessage());
+            showError("Search failed: " + e.getMessage());
         }
     }
 
@@ -173,7 +172,7 @@ public class PatientTab {
             int id = patientService.addPatient(buildPatientFromForm());
             showSuccess("Patient added with ID " + id + ".");
             clearForm();
-            loadPatients();
+            appData.refreshPatients(); // updates the SHARED list -> every tab using it sees this instantly
         } catch (IllegalArgumentException e) {
             showError(e.getMessage());
         } catch (Exception e) {
@@ -192,7 +191,7 @@ public class PatientTab {
             if (patientService.updatePatient(updated)) {
                 showSuccess("Patient updated successfully.");
                 clearForm();
-                loadPatients();
+                appData.refreshPatients();
             } else {
                 showError("Update failed: patient not found.");
             }
@@ -212,7 +211,7 @@ public class PatientTab {
             if (patientService.deletePatient(selectedPatient.getPatientId())) {
                 showSuccess("Patient deleted.");
                 clearForm();
-                loadPatients();
+                appData.refreshPatients();
             } else {
                 showError("Delete failed: patient not found.");
             }
